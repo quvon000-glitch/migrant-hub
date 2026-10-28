@@ -1,0 +1,40 @@
+name: Web app (iPhone / any browser)
+
+on:
+  push:
+    branches: [claude/salom-d769nb, main]
+    paths: ['app/**', '.github/workflows/web.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter build web --release --base-href /migrant-hub/ --no-web-resources-cdn
+
+      # Published to the gh-pages branch → https://quvon000-glitch.github.io/migrant-hub/
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: app/build/web
+          publish_branch: gh-pages
+          force_orphan: true

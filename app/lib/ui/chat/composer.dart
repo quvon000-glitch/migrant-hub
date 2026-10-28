@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -35,7 +35,8 @@ class Composer extends StatefulWidget {
   final Future<void> Function(String text) onSend;
   final VoidCallback? onTyping;
   final VoidCallback? onAttach;
-  final Future<void> Function(File file, int seconds)? onVoice;
+  /// [path] is a file path on phones and a blob: URL on the web.
+  final Future<void> Function(String path, int seconds, String mime)? onVoice;
   final ComposerContext? context_;
   final VoidCallback? onCancelContext;
   final String? editText; // when set, the field is filled with it once
@@ -55,6 +56,7 @@ class _ComposerState extends State<Composer> {
   int seconds = 0;
   Timer? _timer;
   String? _lastEdit;
+  String _mime = 'audio/mp4';
 
   bool get hasText => ctrl.text.trim().isNotEmpty;
 
@@ -97,9 +99,20 @@ class _ComposerState extends State<Composer> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mikrofonga ruxsat bering')));
       return;
     }
-    final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/${const Uuid().v4()}.m4a';
-    await r.start(const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 64000, sampleRate: 44100, numChannels: 1), path: path);
+    // AAC (m4a) where possible — it plays everywhere, iPhone included; browsers may only offer Opus/WAV
+    var encoder = AudioEncoder.aacLc;
+    _mime = 'audio/mp4';
+    if (!await r.isEncoderSupported(AudioEncoder.aacLc)) {
+      if (await r.isEncoderSupported(AudioEncoder.opus)) {
+        encoder = AudioEncoder.opus;
+        _mime = 'audio/webm';
+      } else {
+        encoder = AudioEncoder.wav;
+        _mime = 'audio/wav';
+      }
+    }
+    final path = kIsWeb ? '' : '${(await getTemporaryDirectory()).path}/${const Uuid().v4()}.m4a';
+    await r.start(RecordConfig(encoder: encoder, bitRate: 64000, sampleRate: 44100, numChannels: 1), path: path);
     setState(() {
       recording = true;
       seconds = 0;
@@ -121,7 +134,7 @@ class _ComposerState extends State<Composer> {
       return;
     }
     final path = await r.stop();
-    if (path != null && secs >= 1) await widget.onVoice?.call(File(path), secs);
+    if (path != null && secs >= 1) await widget.onVoice?.call(path, secs, _mime);
   }
 
   @override

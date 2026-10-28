@@ -1,11 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/files.dart';
 import '../../core/supa.dart';
 import '../../state/chat_hub.dart';
 import '../../state/group_chat.dart';
@@ -119,9 +117,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     if (x == null) return;
     setState(() => uploading = true);
     try {
-      final bytes = await FlutterImageCompress.compressWithFile(x.path, minWidth: 512, minHeight: 512, quality: 85);
+      final bytes = await jpegForUpload(x.path, maxSide: 512, quality: 85);
       final path = '${p.id}/${const Uuid().v4()}.jpg';
-      await supa.storage.from('avatars').uploadBinary(path, bytes ?? await File(x.path).readAsBytes(), fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: '31536000'));
+      await supa.storage.from('avatars').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: '31536000'));
       setState(() => avatar = publicUrl('avatars', path));
     } catch (e) {
       if (mounted) toast(context, errorText(e));

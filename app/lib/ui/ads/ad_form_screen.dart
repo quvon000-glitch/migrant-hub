@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,7 +39,7 @@ class _AdFormScreenState extends State<AdFormScreen> {
     for (final x in picked.take(left)) {
       setState(() => uploading++);
       try {
-        final url = await AdsStore.instance.uploadPhoto(File(x.path));
+        final url = await AdsStore.instance.uploadPhoto(x.path);
         setState(() => photos.add(url));
       } catch (e) {
         if (mounted) toast(context, errorText(e));

@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/files.dart';
 import '../core/local_store.dart';
 import '../core/supa.dart';
 import '../models/ad.dart';
@@ -90,10 +89,10 @@ class AdsStore extends ChangeNotifier {
     }
   }
 
-  Future<String> uploadPhoto(File file) async {
-    final bytes = await FlutterImageCompress.compressWithFile(file.path, minWidth: 1400, minHeight: 1400, quality: 80);
+  Future<String> uploadPhoto(String local) async {
+    final bytes = await jpegForUpload(local, maxSide: 1400, quality: 80);
     final path = '$myId/${const Uuid().v4()}.jpg';
-    await supa.storage.from('ad-photos').uploadBinary(path, bytes ?? await file.readAsBytes(), fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: '31536000'));
+    await supa.storage.from('ad-photos').uploadBinary(path, bytes, fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: '31536000'));
     return publicUrl('ad-photos', path);
   }
 

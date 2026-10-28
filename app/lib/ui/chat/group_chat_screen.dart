@@ -1,13 +1,15 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' show File;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/files.dart';
 import '../../core/format.dart';
 import '../../core/supa.dart';
 import '../../models/group_message.dart';
@@ -159,12 +161,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     if (kind == 'video') {
       final x = await picker.pickVideo(source: ImageSource.gallery, maxDuration: const Duration(seconds: 60));
       if (x == null) return;
-      final f = File(x.path);
-      if (await f.length() > 40 * 1024 * 1024) {
+      if (await x.length() > 40 * 1024 * 1024) {
         if (mounted) _alert('Video 40 MB dan oshmasin');
         return;
       }
-      final vc = VideoPlayerController.file(f);
+      final vc = kIsWeb ? VideoPlayerController.networkUrl(Uri.parse(x.path)) : VideoPlayerController.file(File(x.path));
       await vc.initialize();
       final secs = vc.value.duration.inSeconds;
       final size = vc.value.size;
@@ -178,29 +179,28 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       final reply = replyTo?.id;
       setState(() => replyTo = null);
       _toBottom();
-      await chat.sendMedia('video', f, caption: caption, replyTo: reply, duration: secs, width: size.width.round(), height: size.height.round());
+      await chat.sendMedia('video', x.path, caption: caption, replyTo: reply, duration: secs, width: size.width.round(), height: size.height.round());
       return;
     }
     final x = await picker.pickImage(source: kind == 'camera' ? ImageSource.camera : ImageSource.gallery, maxWidth: 2200, maxHeight: 2200, imageQuality: 90);
     if (x == null) return;
-    final f = File(x.path);
-    final img = await decodeImageFromList(await f.readAsBytes());
-    final caption = await _captionDialog(f);
+    final img = await decodeImageFromList(await readBytes(x.path));
+    final caption = await _captionDialog(x.path);
     if (caption == null) return;
     final reply = replyTo?.id;
     setState(() => replyTo = null);
     _toBottom();
-    await chat.sendMedia('image', f, caption: caption, replyTo: reply, width: img.width, height: img.height);
+    await chat.sendMedia('image', x.path, caption: caption, replyTo: reply, width: img.width, height: img.height);
   }
 
-  Future<String?> _captionDialog(File? image) {
+  Future<String?> _captionDialog(String? image) {
     final c = TextEditingController();
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (image != null) ClipRRect(borderRadius: BorderRadius.circular(12), child: ConstrainedBox(constraints: const BoxConstraints(maxHeight: 280), child: Image.file(image, fit: BoxFit.cover))),
+          if (image != null) ClipRRect(borderRadius: BorderRadius.circular(12), child: ConstrainedBox(constraints: const BoxConstraints(maxHeight: 280), child: localImage(image, fit: BoxFit.cover))),
           if (image == null) const ListTile(leading: Icon(Icons.videocam_rounded), title: Text('Video tanlandi')),
           const SizedBox(height: 10),
           TextField(controller: c, maxLines: 3, minLines: 1, maxLength: 2000, decoration: const InputDecoration(hintText: 'Izoh qo‘shish…', counterText: '')),
@@ -213,11 +213,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
-  Future<void> _voice(File f, int secs) async {
+  Future<void> _voice(String path, int secs, String mime) async {
     final reply = replyTo?.id;
     setState(() => replyTo = null);
     _toBottom();
-    await chat.sendMedia('voice', f, replyTo: reply, duration: secs);
+    await chat.sendMedia('voice', path, replyTo: reply, duration: secs, mime: mime);
   }
 
   // ---------- menu ----------
@@ -496,7 +496,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         Hero(
           tag: tag,
           child: m.localFile != null && m.mediaUrl == null
-              ? Image.file(File(m.localFile!), fit: BoxFit.cover)
+              ? localImage(m.localFile!, fit: BoxFit.cover)
               : CachedNetworkImage(imageUrl: m.mediaUrl!, fit: BoxFit.cover, memCacheWidth: 900, placeholder: (_, _) => Container(color: Colors.black12), errorWidget: (_, _, _) => Container(color: Colors.black12, child: const Icon(Icons.broken_image_outlined))),
         ),
         meta,

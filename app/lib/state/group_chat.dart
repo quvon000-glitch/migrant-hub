@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/files.dart';
 import '../core/lifecycle.dart';
 import '../core/local_store.dart';
 import '../core/supa.dart';
@@ -368,8 +367,10 @@ class GroupChat extends ChangeNotifier with WidgetsBindingObserverMixin {
     await _deliver(m);
   }
 
-  Future<void> sendMedia(String kind, File file, {String caption = '', int? replyTo, int? duration, int? width, int? height}) async {
-    final m = _local(kind, caption.trim(), replyTo: replyTo, file: file.path, duration: duration, w: width, h: height);
+  /// [path] is a local file path (phones) or a blob: URL (web). [mime] is the recorded audio type.
+  Future<void> sendMedia(String kind, String path, {String caption = '', int? replyTo, int? duration, int? width, int? height, String? mime}) async {
+    if (mime != null) _mimes[path] = mime;
+    final m = _local(kind, caption.trim(), replyTo: replyTo, file: path, duration: duration, w: width, h: height);
     _all.add(m);
     _notify();
     await _deliver(m);
@@ -389,7 +390,7 @@ class GroupChat extends ChangeNotifier with WidgetsBindingObserverMixin {
     try {
       String? mediaPath, thumbPath;
       if (m.kind != 'text' && m.localFile != null) {
-        mediaPath = await _upload(File(m.localFile!), m.kind);
+        mediaPath = await _upload(m.localFile!, m.kind);
       }
       final res = await supa.rpc('group_send', params: {
         'p_city': city,
@@ -433,22 +434,27 @@ class GroupChat extends ChangeNotifier with WidgetsBindingObserverMixin {
     _notify();
   }
 
-  Future<String> _upload(File file, String kind) async {
+  final Map<String, String> _mimes = {};
+
+  Future<String> _upload(String local, String kind) async {
     final uid = myId!;
     final id = const Uuid().v4();
+    final bucket = supa.storage.from('chat-media');
+    const cache = '31536000';
     if (kind == 'image') {
-      final bytes = await FlutterImageCompress.compressWithFile(file.path, minWidth: 1600, minHeight: 1600, quality: 82);
       final path = '$uid/$id.jpg';
-      await supa.storage.from('chat-media').uploadBinary(path, bytes ?? await file.readAsBytes(), fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: '31536000'));
+      await bucket.uploadBinary(path, await jpegForUpload(local), fileOptions: const FileOptions(contentType: 'image/jpeg', cacheControl: cache));
       return path;
     }
     if (kind == 'video') {
       final path = '$uid/$id.mp4';
-      await supa.storage.from('chat-media').upload(path, file, fileOptions: const FileOptions(contentType: 'video/mp4', cacheControl: '31536000'));
+      await bucket.uploadBinary(path, await readBytes(local), fileOptions: const FileOptions(contentType: 'video/mp4', cacheControl: cache));
       return path;
     }
-    final path = '$uid/$id.m4a';
-    await supa.storage.from('chat-media').upload(path, file, fileOptions: const FileOptions(contentType: 'audio/mp4', cacheControl: '31536000'));
+    final mime = _mimes[local] ?? 'audio/mp4';
+    final ext = mime.contains('webm') ? 'webm' : mime.contains('ogg') ? 'ogg' : mime.contains('wav') ? 'wav' : 'm4a';
+    final path = '$uid/$id.$ext';
+    await bucket.uploadBinary(path, await readBytes(local), fileOptions: FileOptions(contentType: mime, cacheControl: cache));
     return path;
   }
 

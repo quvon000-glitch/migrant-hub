@@ -2,7 +2,7 @@
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
   ('avatars', 'avatars', true, 5 * 1024 * 1024, array['image/jpeg', 'image/png', 'image/webp']),
   ('ad-photos', 'ad-photos', true, 8 * 1024 * 1024, array['image/jpeg', 'image/png', 'image/webp']),
-  ('chat-media', 'chat-media', true, 40 * 1024 * 1024, array['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'audio/mp4', 'audio/aac', 'audio/m4a', 'audio/x-m4a', 'audio/mpeg', 'audio/ogg', 'audio/webm'])
+  ('chat-media', 'chat-media', true, 40 * 1024 * 1024, array['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'audio/mp4', 'audio/aac', 'audio/m4a', 'audio/x-m4a', 'audio/mpeg', 'audio/ogg', 'audio/webm', 'audio/wav'])
 on conflict (id) do update set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 create policy "upload to own folder" on storage.objects for insert to authenticated

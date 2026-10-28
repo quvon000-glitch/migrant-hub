@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' show File;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../core/files.dart';
 import '../../core/format.dart';
 import '../../theme.dart';
 
@@ -33,7 +35,7 @@ class ImageViewer extends StatelessWidget {
             tag: tag,
             child: InteractiveViewer(
               maxScale: 5,
-              child: file != null ? Image.file(File(file!)) : CachedNetworkImage(imageUrl: url!, fit: BoxFit.contain, placeholder: (_, _) => const CircularProgressIndicator(color: Colors.white)),
+              child: file != null ? localImage(file!) : CachedNetworkImage(imageUrl: url!, fit: BoxFit.contain, placeholder: (_, _) => const CircularProgressIndicator(color: Colors.white)),
             ),
           ),
         ),
@@ -52,7 +54,9 @@ class VideoScreen extends StatefulWidget {
 }
 
 class _VideoScreenState extends State<VideoScreen> {
-  late final VideoPlayerController c = widget.file != null ? VideoPlayerController.file(File(widget.file!)) : VideoPlayerController.networkUrl(Uri.parse(widget.url!));
+  late final VideoPlayerController c = widget.file != null && !kIsWeb
+      ? VideoPlayerController.file(File(widget.file!))
+      : VideoPlayerController.networkUrl(Uri.parse(widget.url ?? widget.file!));
 
   @override
   void initState() {
@@ -125,7 +129,7 @@ class _VoicePlayerState extends State<VoicePlayer> {
         }
         if (mounted) setState(() => playing = s.playing && s.processingState != ProcessingState.completed);
       });
-      total = widget.file != null ? await p.setFilePath(widget.file!) : await p.setUrl(widget.url!);
+      total = widget.file != null && !kIsWeb ? await p.setFilePath(widget.file!) : await p.setUrl(widget.url ?? widget.file!);
     }
     if (playing) {
       await _p!.pause();
