@@ -324,81 +324,6 @@ begin
   return jsonb_build_object('message', to_jsonb(rec));
 end $$;
 
--- save / unsave / edit / delete / punish (admin) / pin / unpin / restore (admin)
-create or replace function public.group_action(p_id bigint, p_action text, p_body text default null, p_rule text default null) returns jsonb
-language plpgsql security definer set search_path = '' as $$
-declare
-  uid uuid := auth.uid();
-  adm boolean := public.is_admin();
-  msg record;
-  rule text;
-  note text;
-  b text := trim(coalesce(p_body, ''));
-begin
-  if uid is null then perform public.raise_user_error('Avval hisobga kiring'); end if;
-  select * into msg from public.group_messages where id = p_id and deleted_at is null;
-  if not found then perform public.raise_user_error('Xabar topilmadi'); end if;
-
-  if p_action = 'save' then
-    insert into public.group_saved (user_id, message_id) values (uid, p_id) on conflict do nothing;
-  elsif p_action = 'unsave' then
-    delete from public.group_saved where user_id = uid and message_id = p_id;
-  elsif p_action = 'edit' then
-    if msg.user_id <> uid then perform public.raise_user_error('Faqat o‘z xabaringizni tahrirlay olasiz'); end if;
-    if b = '' and msg.kind = 'text' then perform public.raise_user_error('Xabar bo‘sh'); end if;
-    if char_length(b) > 2000 then perform public.raise_user_error('Xabar 2000 belgidan oshmasin'); end if;
-    note := public.active_ban_text(uid);
-    if note is not null then perform public.raise_user_error(note); end if;
-    if not adm then
-      if public.has_link(b) then perform public.raise_user_error('Havola joylash faqat admin uchun ruxsat etilgan'); end if;
-      rule := public.moderate_text(b);
-      if rule is not null then return jsonb_build_object('error', public.apply_strike(uid, rule, b, true)); end if;
-    end if;
-    update public.group_messages set body = b, edited_at = now() where id = p_id;
-  elsif p_action in ('delete', 'punish') then
-    if p_action = 'delete' and msg.user_id <> uid and not adm then perform public.raise_user_error('Faqat o‘z xabaringizni o‘chira olasiz'); end if;
-    if p_action = 'punish' and not adm then perform public.raise_user_error('Faqat admin uchun'); end if;
-    -- the row stays (wiped) so every open chat removes it through Realtime
-    update public.group_messages set deleted_at = now(), pinned_at = null, body = '', media_expired = true where id = p_id;
-    if p_action = 'punish' then
-      note := public.apply_strike(msg.user_id, coalesce(p_rule, 'card'), msg.body, false);
-      return jsonb_build_object('ok', true, 'note', note, 'media', jsonb_build_array(msg.media_path, msg.thumb_path));
-    end if;
-    return jsonb_build_object('ok', true, 'media', jsonb_build_array(msg.media_path, msg.thumb_path));
-  elsif p_action in ('pin', 'unpin', 'restore') then
-    if not adm then perform public.raise_user_error('Faqat admin uchun'); end if;
-    if p_action = 'pin' then
-      update public.group_messages set pinned_at = null where city = msg.city and pinned_at is not null;
-      update public.group_messages set pinned_at = now(), hidden_at = null where id = p_id;
-    elsif p_action = 'unpin' then
-      update public.group_messages set pinned_at = null where id = p_id;
-    else
-      update public.group_messages set hidden_at = null, report_count = 0 where id = p_id;
-      delete from public.group_reports where message_id = p_id;
-    end if;
-  else
-    perform public.raise_user_error('Noma’lum amal');
-  end if;
-  return jsonb_build_object('ok', true);
-end $$;
-
--- 3 reports hide a message until an admin looks at it
-create or replace function public.group_report(p_id bigint, p_reason text) returns jsonb
-language plpgsql security definer set search_path = '' as $$
-declare uid uuid := auth.uid(); msg record; cnt int;
-begin
-  if uid is null then perform public.raise_user_error('Avval hisobga kiring'); end if;
-  select * into msg from public.group_messages where id = p_id and deleted_at is null;
-  if not found then perform public.raise_user_error('Xabar topilmadi'); end if;
-  if msg.user_id = uid then perform public.raise_user_error('O‘z xabaringizga shikoyat qilib bo‘lmaydi'); end if;
-  insert into public.group_reports (message_id, reporter_id, reason) values (p_id, uid, left(p_reason, 100)) on conflict do nothing;
-  select count(*) into cnt from public.group_reports where message_id = p_id;
-  update public.group_messages set report_count = cnt,
-    hidden_at = case when cnt >= 3 and pinned_at is null then coalesce(hidden_at, now()) else hidden_at end
-    where id = p_id;
-  return jsonb_build_object('ok', true);
-end $$;
-
 -- Marks the group read; other members see the second tick through Realtime on group_members
 create or replace function public.group_mark_read(p_city text) returns timestamptz
 language plpgsql security definer set search_path = '' as $$
@@ -424,8 +349,5 @@ language sql stable security definer set search_path = '' as $$
     'me', public.group_me()
   );
 $$;
-
-grant execute on function public.group_send, public.group_action, public.group_report, public.group_mark_read, public.group_state, public.group_me to authenticated;
-revoke execute on function public.apply_strike, public.voice_left_today, public.active_ban_text from anon, authenticated, public;
 
 alter publication supabase_realtime add table public.group_messages, public.group_members;
