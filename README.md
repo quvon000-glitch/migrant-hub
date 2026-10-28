@@ -28,7 +28,7 @@ Edge funksiyalar:
 
 - `auth` — telefon + 6 xonali kod bilan ro‘yxatdan o‘tish/kirish (SMS kerak emas), 5 xato → 15 daqiqa blok, "kodni unutdim" (48 soat).
 - `news-refresh` — rasmiy manbalar va OAV RSS'idan migrantlarga oid yangiliklarni yig‘adi (pg_cron, 30 daqiqada). `ANTHROPIC_API_KEY` maxfiy kaliti qo‘yilsa, Claude yangiliklarni saralaydi va o‘zbekchaga qayta yozadi.
-- `fx-refresh` — CBU / CBR / NBU kurslari (har soat).
+- `fx-refresh` — CBU / CBR / NBU kurslari (har soat). O‘zbek banklari Supabase serveriga javob bermasa, so‘m kursi Rossiya MB kross-kursidan hisoblanadi va ilovada "taxminiy kurs" deb ko‘rsatiladi.
 - `maintenance` — 48 soatdan eski guruh xabarlari va fayllarini, muddati o‘tgan "kodni unutdim" hisoblarini o‘chiradi (har soat).
 
 ## Ilovani ishga tushirish

@@ -7,13 +7,15 @@ import '../core/supa.dart';
 
 class FxSnapshot {
   final String date;
+  /// 'cbu' = official Central Bank of Uzbekistan rate, 'cross' = calculated from the Bank of Russia rates
+  final String basis;
   final Map<String, ({double rate, double diff})> rates; // so'm per unit
   final List<({String date, double rate})> rubHistory;
   final Map<String, ({double rate, double diff})> cbr; // rubles per unit
   final Map<String, ({double buy, double sell})> nbuCash;
   final Map<String, ({double buy, double sell})> nbuApp;
 
-  FxSnapshot(this.date, this.rates, this.rubHistory, this.cbr, this.nbuCash, this.nbuApp);
+  FxSnapshot(this.date, this.basis, this.rates, this.rubHistory, this.cbr, this.nbuCash, this.nbuApp);
 
   static double _d(dynamic v) => (v as num?)?.toDouble() ?? 0;
 
@@ -24,6 +26,7 @@ class FxSnapshot {
     final nbu = j['nbu'] as Map?;
     return FxSnapshot(
       j['date'] as String? ?? '',
+      j['basis'] as String? ?? 'cbu',
       rd(j['rates']),
       ((j['rub_history'] as List?) ?? []).map((h) => (date: h['date'] as String, rate: _d(h['rate']))).toList(),
       rd(cbr?['rates']),

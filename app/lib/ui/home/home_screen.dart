@@ -147,11 +147,11 @@ class _FxCard extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Bugungi kurs · Markaziy bank', style: TextStyle(color: Colors.white.withValues(alpha: .8), fontSize: 12.5)),
+                    Text(fx?.basis == 'cross' ? 'Bugungi kurs · Rossiya MB orqali hisoblangan' : 'Bugungi kurs · O‘zbekiston Markaziy banki', style: TextStyle(color: Colors.white.withValues(alpha: .8), fontSize: 12.5)),
                     const SizedBox(height: 3),
                     Text(text, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 3),
-                    Text(fx == null ? 'Yuklanmoqda…' : '${fx.date} · rasmiy kurs', style: TextStyle(color: Colors.white.withValues(alpha: .75), fontSize: 12)),
+                    Text(fx == null ? 'Yuklanmoqda…' : '${fx.date} · ${fx.basis == 'cross' ? 'taxminiy kurs' : 'rasmiy kurs'}', style: TextStyle(color: Colors.white.withValues(alpha: .75), fontSize: 12)),
                   ]),
                 ),
                 const Icon(Icons.chevron_right, color: Colors.white),

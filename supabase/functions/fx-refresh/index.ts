@@ -146,6 +146,22 @@ async function refreshNbu() {
   await save(rows);
 }
 
+async function saveCross() {
+  const { data } = await admin.from("fx_rates").select("ccy, rate, diff, rate_date").eq("source", "cbr").order("rate_date", { ascending: false }).limit(40);
+  if (!data?.length) throw new Error("no cbr rates");
+  const date = data[0].rate_date as string;
+  const day = data.filter((r) => r.rate_date === date);
+  const uzs = day.find((r) => r.ccy === "UZS");
+  if (!uzs) throw new Error("no UZS in cbr");
+  const rubPerSom = Number(uzs.rate);
+  const rows: Row[] = [{ source: "cross", rate_date: date, ccy: "RUB", rate: 1 / rubPerSom, diff: 0 }];
+  for (const r of day) {
+    if (r.ccy === "UZS" || !FX_CCYS.includes(r.ccy)) continue;
+    rows.push({ source: "cross", rate_date: date, ccy: r.ccy, rate: Number(r.rate) / rubPerSom, diff: 0 });
+  }
+  await save(rows);
+}
+
 Deno.serve(async () => {
   const jobs: Record<string, () => Promise<unknown>> = {
     cbu: async () => { if (!(await refreshCbuDirect())) await refreshCbuViaNbu(); },
@@ -153,6 +169,14 @@ Deno.serve(async () => {
     nbu: refreshNbu,
   };
   const results = await Promise.allSettled(Object.values(jobs).map((f) => f()));
-  const report = Object.fromEntries(Object.keys(jobs).map((k, i) => [k, results[i].status === "fulfilled" ? "ok" : String((results[i] as PromiseRejectedResult).reason)]));
+  const report: Record<string, string> = Object.fromEntries(Object.keys(jobs).map((k, i) => [k, results[i].status === "fulfilled" ? "ok" : String((results[i] as PromiseRejectedResult).reason)]));
+  // Uzbek banks often refuse foreign servers: so'm rates are then derived from the Bank of Russia
+  // cross rate (shown in the app as "calculated", never as the official CBU rate).
+  try {
+    await saveCross();
+    report.cross = "ok";
+  } catch (e) {
+    report.cross = String(e);
+  }
   return Response.json(report);
 });

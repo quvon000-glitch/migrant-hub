@@ -31,14 +31,14 @@ class _FxScreenState extends State<FxScreen> {
             child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 24), children: [
               Glass(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Kalkulyator (Markaziy bank kursi)', style: TextStyle(fontWeight: FontWeight.w700)),
+                  Text(fx.basis == 'cross' ? 'Kalkulyator (Rossiya MB kursi orqali)' : 'Kalkulyator (Markaziy bank kursi)', style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
                   TextField(controller: amount, keyboardType: TextInputType.number, onChanged: (_) => setState(() {}), decoration: const InputDecoration(suffixText: '₽')),
                   const SizedBox(height: 10),
                   Text(rub == null ? '—' : '= ${fmtNum((a * rub.rate).round())} so‘m', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.navy)),
                 ]),
               ),
-              const SectionTitle('O‘zbekiston Markaziy banki (1 birlik = so‘m)'),
+              SectionTitle(fx.basis == 'cross' ? '1 birlik = so‘m (Rossiya MB kursidan hisoblangan)' : 'O‘zbekiston Markaziy banki (1 birlik = so‘m)'),
               Glass(child: Column(children: [for (final e in fx.rates.entries) _row(e.key, moneyShort(e.value.rate), e.value.diff)])),
               if (fx.nbuApp.isNotEmpty || fx.nbuCash.isNotEmpty) ...[
                 const SectionTitle('Milliy bank: sotib olish / sotish'),
