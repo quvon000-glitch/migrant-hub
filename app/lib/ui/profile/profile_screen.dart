@@ -79,7 +79,7 @@ class ProfileScreen extends StatelessWidget {
                   onTap: () async {
                     if (!await confirm(context, 'Hisobni butunlay o‘chirasizmi?', text: 'Barcha e’lonlar, yozishmalar va ma’lumotlaringiz qaytarib bo‘lmaydigan qilib o‘chiriladi.', ok: 'O‘chirish', danger: true)) return;
                     try {
-                      await supa.rpc('delete_my_account');
+                      await supa.functions.invoke('auth', body: {'action': 'delete_account'});
                       if (context.mounted) Navigator.of(context).popUntil((r) => r.isFirst);
                       await AppSession.instance.signOut();
                     } catch (e) {

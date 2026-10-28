@@ -1,6 +1,6 @@
 // Phone + 6-digit code accounts on top of Supabase Auth.
 // The phone number becomes a synthetic e-mail (<digits>@phone.migranthub.app) and the code is the password,
-// so no SMS provider is needed. Actions: register, login, forgot.
+// so no SMS provider is needed. Actions: register, login, forgot, delete_account.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const URL = Deno.env.get("SUPABASE_URL")!;
@@ -165,6 +165,19 @@ async function forgot(body: Record<string, unknown>) {
   return reply({ pendingUntil: deadline(now).toISOString(), alreadyPending: false });
 }
 
+/** The signed-in user deletes their own account; everything they created goes with it (FK cascade). */
+async function deleteAccount(req: Request) {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data.user) return fail("Avval hisobga kiring", 401);
+  const { error: delError } = await admin.auth.admin.deleteUser(data.user.id);
+  if (delError) {
+    console.error("deleteUser", delError);
+    return fail("Hisobni o‘chirib bo‘lmadi. Keyinroq urinib ko‘ring.", 500);
+  }
+  return reply({ ok: true });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return fail("Not found", 404);
@@ -174,6 +187,7 @@ Deno.serve(async (req) => {
       case "register": return await register(body);
       case "login": return await login(body);
       case "forgot": return await forgot(body);
+      case "delete_account": return await deleteAccount(req);
       default: return fail("Noma’lum amal", 404);
     }
   } catch (e) {
